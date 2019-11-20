@@ -6,6 +6,7 @@ from sylfk.helper import parse_static_key
 from sylfk.route import Route
 from sylfk.template_engine import replace_template
 import os
+from sylfk.session import create_session_id, session
 
 ERROR_MAP = {
     '401': Response('<h1>401 Unknow or unsupported method</h1>', content_type='text/html; charset=UTF-8', status=401),
@@ -32,7 +33,7 @@ class ExecFunc(object):
 class SYLFk(object):
     """docstring for SYLFK"""
     template_folder = None
-    def __init__(self, static_folder='static', template_folder='template'):
+    def __init__(self, static_folder='static', template_folder='template', session_path='.session'):
         self.host = '127.0.0.1'
         self.port = 8086
         self.url_map = {}
@@ -42,6 +43,7 @@ class SYLFk(object):
         self.route = Route(self)
         self.template_folder = template_folder
         type(self).template_folder = self.template_folder
+        self.session_path = session_path
 
     def dispatch_static(self, static_path):
         if os.path.exists(static_path):
@@ -54,13 +56,22 @@ class SYLFk(object):
             return ERROR_MAP('404')
             
     def dispatch_request(self, request):
+        cookies = request.cookies
+        if 'session_id' not in cookies:
+            headers = {
+                'Set-Cookie': 'session_id=%s' % create_session_id(),
+                'Server': 'Shiyanlou Framework',
+            }
+        else:
+            headers = {
+                'Server': 'Shiyanlou Framework',
+            }
         url = '/' + '/'.join(request.url.split('/')[3:]).split('?')[0]
         if url.startswith('/' + self.static_folder + '/'):
             endpoint = 'static'
             url = url[1:]
         else:
             endpoint = self.url_map.get(url, None)
-        headers = {'Server': 'SYL Web 0.1'}
 
         if endpoint is None:
             return ERROR_MAP['404']
@@ -86,7 +97,6 @@ class SYLFk(object):
         return Response(rep, content_type='%s; charset=UTF-8' % content_type, headers=headers, status=status)
 
     def run(self, host=None, port=None, **options):
-
         self.function_map['static'] = ExecFunc(func=self.dispatch_static, func_type='static')
         for key, value in options.items():
             if value is not None:
@@ -95,6 +105,10 @@ class SYLFk(object):
             self.host = host
         if port:
             self.port = port
+        if not os.path.exists(self.session_path):
+            os.mkdir(self.session_path)
+        session.set_storage_path(self.session_path)
+        session.load_local_session()
 
         run_simple(hostname=self.host, port=self.port, application=self, **options)
 
