@@ -4,6 +4,7 @@ from werkzeug.wrappers import Response
 import sylfk.exceptions as exceptions
 from sylfk.helper import parse_static_key
 from sylfk.route import Route
+from sylfk.template_engine import replace_template
 import os
 
 ERROR_MAP = {
@@ -18,6 +19,8 @@ TYPE_MAP = {
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
 }
+def simple_template(path, **options):
+    return replace_template(SYLFk, path, **options)
 
 class ExecFunc(object):
     def __init__(self, func, func_type, **options):
@@ -28,7 +31,8 @@ class ExecFunc(object):
 
 class SYLFk(object):
     """docstring for SYLFK"""
-    def __init__(self, static_folder='static'):
+    template_folder = None
+    def __init__(self, static_folder='static', template_folder='template'):
         self.host = '127.0.0.1'
         self.port = 8086
         self.url_map = {}
@@ -36,6 +40,8 @@ class SYLFk(object):
         self.function_map = {}
         self.static_folder = static_folder
         self.route = Route(self)
+        self.template_folder = template_folder
+        type(self).template_folder = self.template_folder
 
     def dispatch_static(self, static_path):
         if os.path.exists(static_path):
