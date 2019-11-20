@@ -60,7 +60,6 @@ class Session(object):
                 with open(path, 'rb') as f:
                     content = f.read()
                 content = base64.decodebytes(content)
-                print(content)
                 self.__session_map__[session_id] = json.loads(content.decode())
 session = Session()
 

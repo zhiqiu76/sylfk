@@ -23,6 +23,11 @@ TYPE_MAP = {
 def simple_template(path, **options):
     return replace_template(SYLFk, path, **options)
 
+def redirect(url, status_code=302):
+    response = Response('', status=status_code)
+    response.headers['Location'] = url
+    return response
+
 class ExecFunc(object):
     def __init__(self, func, func_type, **options):
         self.func = func
@@ -94,6 +99,10 @@ class SYLFk(object):
             return ERROR_MAP['503']
         status = 200
         content_type = 'text/html'
+
+        if isinstance(rep, Response):
+            return rep
+
         return Response(rep, content_type='%s; charset=UTF-8' % content_type, headers=headers, status=status)
 
     def run(self, host=None, port=None, **options):
@@ -136,3 +145,5 @@ class SYLFk(object):
         name = controller.__name__()
         for rule in controller.url_map:
             self.bind_view(rule['url'], rule['view'], name + '.' + rule['endpoint'])
+
+    
