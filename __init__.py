@@ -7,6 +7,7 @@ from sylfk.route import Route
 from sylfk.template_engine import replace_template
 import os
 from sylfk.session import create_session_id, session
+import json
 
 ERROR_MAP = {
     '401': Response('<h1>401 Unknow or unsupported method</h1>', content_type='text/html; charset=UTF-8', status=401),
@@ -27,6 +28,13 @@ def redirect(url, status_code=302):
     response = Response('', status=status_code)
     response.headers['Location'] = url
     return response
+
+def render_json(data):
+    content_type = 'text/plain'
+    if isinstance(data, dict) or isinstance(data, list):
+        data = json.dumps(data)
+        content_type = 'application/json'
+    return Response(data, content_type='%s; charset=UTF-8' % content_type, status=200)
 
 class ExecFunc(object):
     def __init__(self, func, func_type, **options):
