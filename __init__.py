@@ -36,6 +36,18 @@ def render_json(data):
         content_type = 'application/json'
     return Response(data, content_type='%s; charset=UTF-8' % content_type, status=200)
 
+def render_file(file_path, file_name=None):
+    if os.path.exists(file_path):
+        with open(file_path, 'rb') as f:
+            content = f.read()
+        if file_name is None:
+            file_name = file_path.split(os.path.sep)[-1]
+        headers = {
+            'Content-Disposition': 'attachment; filename="%s"' % file_name
+        }
+        return Response(content, headers=headers, status=200)
+    return ERROR_MAP['404']
+
 class ExecFunc(object):
     def __init__(self, func, func_type, **options):
         self.func = func
