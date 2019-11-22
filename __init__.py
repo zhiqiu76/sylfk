@@ -9,11 +9,7 @@ import os
 from sylfk.session import create_session_id, session
 import json
 
-ERROR_MAP = {
-    '401': Response('<h1>401 Unknow or unsupported method</h1>', content_type='text/html; charset=UTF-8', status=401),
-    '404': Response('<h1>404 Source Not Found</h1>', content_type='text/html; charset=UTF-8', status=404),
-    '503': Response('<h1>503 Unknow function type</h1>', content_type='text/html; charset=UTF-8', status=503),
-}
+
 TYPE_MAP = {
     'css': 'text/css',
     'js': 'text/js',
@@ -36,8 +32,11 @@ def render_json(data):
         content_type = 'application/json'
     return Response(data, content_type='%s; charset=UTF-8' % content_type, status=200)
 
+@exceptions.capture
 def render_file(file_path, file_name=None):
     if os.path.exists(file_path):
+        if not os.access(file_path, os.R_OK):
+            raise exceptions.RequireReadPermissionError
         with open(file_path, 'rb') as f:
             content = f.read()
         if file_name is None:
@@ -46,7 +45,7 @@ def render_file(file_path, file_name=None):
             'Content-Disposition': 'attachment; filename="%s"' % file_name
         }
         return Response(content, headers=headers, status=200)
-    return ERROR_MAP['404']
+    return exceptions.FileNotExistsError
 
 class ExecFunc(object):
     def __init__(self, func, func_type, **options):
@@ -70,6 +69,7 @@ class SYLFk(object):
         type(self).template_folder = self.template_folder
         self.session_path = session_path
 
+    @exceptions.capture
     def dispatch_static(self, static_path):
         if os.path.exists(static_path):
             key = parse_static_key(static_path)
@@ -78,8 +78,8 @@ class SYLFk(object):
                 rep = f.read()
             return Response(rep, content_type=doc_type)
         else:
-            return ERROR_MAP('404')
-            
+            raise exceptions.PageNotFoundError
+    @exceptions.capture    
     def dispatch_request(self, request):
         cookies = request.cookies
         if 'session_id' not in cookies:
@@ -99,7 +99,7 @@ class SYLFk(object):
             endpoint = self.url_map.get(url, None)
 
         if endpoint is None:
-            return ERROR_MAP['404']
+            raise exceptions.PageNotFoundError
         exec_function = self.function_map[endpoint]
 
         if exec_function.func_type == 'route':
@@ -110,13 +110,13 @@ class SYLFk(object):
                 else:
                     rep = exec_function.func()
             else:
-                return ERROR_MAP['401']
+                return exceptions.InvalidRequestMethodError
         elif exec_function.func_type == 'view':
             rep = exec_function.func(request)
         elif exec_function.func_type == 'static':
             return exec_function.func(url)
         else:
-            return ERROR_MAP['503']
+            raise exceptions.UnknowFuncError
         status = 200
         content_type = 'text/html'
 
@@ -147,6 +147,7 @@ class SYLFk(object):
     def bind_view(self, url, view_class, endpoint):
         self.add_url_rule(url, func=view_class.get_func(endpoint), func_type='view')
 
+    @exceptions.capture
     def add_url_rule(self, url, func, func_type, endpoint=None, **options):
         if endpoint is None:
             endpoint = func.__name__
